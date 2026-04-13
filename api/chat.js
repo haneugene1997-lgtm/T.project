@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body;
   const {
-    model = process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    model = process.env.GEMINI_MODEL || "gemini-2.0-flash",
     max_tokens = 4096,
     system,
     messages,
@@ -74,7 +74,25 @@ export default async function handler(req, res) {
       },
     };
 
-    const fallbackModels = [model, "gemini-1.5-flash", "gemini-1.5-flash-latest"];
+    const candidates = [model, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"];
+    let availableModelNames = [];
+    try {
+      const modelsRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`
+      );
+      const modelsJson = await modelsRes.json();
+      availableModelNames = (modelsJson?.models || [])
+        .filter((m) => (m?.supportedGenerationMethods || []).includes("generateContent"))
+        .map((m) => String(m?.name || "").replace(/^models\//, ""));
+    } catch {
+      // 모델 목록 조회 실패 시에도 하드코딩 후보로 계속 시도
+    }
+    const fallbackModels = [
+      ...new Set([
+        ...candidates,
+        ...availableModelNames,
+      ]),
+    ];
     let r;
     let data;
     let usedModel = model;
