@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body;
   const {
-    model = process.env.GEMINI_MODEL || "gemini-1.5-pro",
+    model = process.env.GEMINI_MODEL || "gemini-1.5-flash",
     max_tokens = 4096,
     system,
     messages,
@@ -58,39 +58,51 @@ export default async function handler(req, res) {
       parts: toGeminiParts(m.content),
     }));
 
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-      {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const requestBody = {
+      ...(system != null
+        ? {
+            systemInstruction: {
+              role: "system",
+              parts: [{ text: system }],
+            },
+          }
+        : {}),
+      contents,
+      generationConfig: {
+        maxOutputTokens: max_tokens,
+        temperature: 0.2,
       },
-      body: JSON.stringify({
-        ...(system != null
-          ? {
-              systemInstruction: {
-                role: "system",
-                parts: [{ text: system }],
-              },
-            }
-          : {}),
-        contents,
-        generationConfig: {
-          maxOutputTokens: max_tokens,
-          temperature: 0.2,
-        },
-      }),
-    });
+    };
 
-    const text = await r.text();
+    const fallbackModels = [model, "gemini-1.5-flash", "gemini-1.5-flash-latest"];
+    let r;
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return res.status(502).json({
-        error: "Anthropic 응답 파싱 실패",
-        detail: text.slice(0, 500),
-      });
+    let usedModel = model;
+    for (const m of fallbackModels) {
+      if (!m) continue;
+      usedModel = m;
+      r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
+      const text = await r.text();
+      try {
+        data = JSON.parse(text);
+      } catch {
+        return res.status(502).json({
+          error: "Gemini 응답 파싱 실패",
+          detail: text.slice(0, 500),
+        });
+      }
+      const errLower = String(data?.error?.message || "").toLowerCase();
+      const isModelNotFound = r.status === 404 || errLower.includes("not found");
+      if (!isModelNotFound) break;
     }
 
     if (!r.ok) {
@@ -116,6 +128,7 @@ export default async function handler(req, res) {
     // 기존 프론트 호환을 위해 Anthropic 형태(content[])로 감싸서 반환
     return res.status(200).json({
       ...data,
+      model: usedModel,
       content: [{ type: "text", text: responseText }],
     });
   } catch (e) {
