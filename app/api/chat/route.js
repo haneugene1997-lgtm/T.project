@@ -128,7 +128,7 @@ function normalizeGeminiModelId(raw) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { message, fileData, fileType } = body;
+    const { message, fileData, fileType, fileMimeType } = body;
     const apiKey = process.env.GEMINI_API_KEY;
     /* 무료 등급에서 한도가 있는 모델이 프로젝트마다 다름 → 기본은 2.5 Flash 우선 */
     const envModel = normalizeGeminiModelId(
@@ -150,9 +150,9 @@ export async function POST(request) {
 
     // Build user content
     let userParts;
-    if (fileData && fileType === "pdf") {
+    if (fileData && fileType === "inline") {
       userParts = [
-        { inline_data: { mime_type: "application/pdf", data: fileData } },
+        { inline_data: { mime_type: fileMimeType || "application/octet-stream", data: fileData } },
         { text: message || "이 문서를 법무 컴플라이언스 관점에서 분석해주세요." },
       ];
     } else if (fileData) {

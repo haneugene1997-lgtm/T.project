@@ -290,12 +290,30 @@ export default function SKTLegalChat() {
     if (f.size > 10 * 1024 * 1024) return;
     if (!["pdf", "txt", "doc", "docx", "md", "csv"].includes(ext)) return;
     setAttachedFile({ name: f.name, size: f.size, type: ext });
+    const mimeTypeMap = {
+      pdf: "application/pdf",
+      txt: "text/plain",
+      md: "text/markdown",
+      csv: "text/csv",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
     const reader = new FileReader();
-    if (ext === "pdf") {
-      reader.onload = (e) => setFileContent({ type: "pdf", data: e.target.result.split(",")[1] });
+    if (ext === "pdf" || ext === "doc" || ext === "docx") {
+      reader.onload = (e) =>
+        setFileContent({
+          type: "inline",
+          mimeType: mimeTypeMap[ext],
+          data: e.target.result.split(",")[1],
+        });
       reader.readAsDataURL(f);
     } else {
-      reader.onload = (e) => setFileContent({ type: "text", data: e.target.result });
+      reader.onload = (e) =>
+        setFileContent({
+          type: "text",
+          mimeType: mimeTypeMap[ext],
+          data: e.target.result,
+        });
       reader.readAsText(f);
     }
   }, []);
@@ -327,6 +345,7 @@ export default function SKTLegalChat() {
           message: text || "이 문서를 법무 컴플라이언스 관점에서 분석해주세요.",
           fileData: fileContent?.data || null,
           fileType: fileContent?.type || null,
+          fileMimeType: fileContent?.mimeType || null,
         }),
       });
 
