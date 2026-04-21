@@ -9,17 +9,24 @@
 }
 
 body {
-  background: #08080d;
-  color: #e5e5ea;
-  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family:
+    "Pretendard Variable",
+    Pretendard,
+    -apple-system,
+    "SF Pro Display",
+    BlinkMacSystemFont,
+    "Apple SD Gothic Neo",
+    sans-serif;
 }
 
 textarea::placeholder {
-  color: #48484a;
+  color: var(--text-tertiary);
 }
 textarea:focus {
   outline: none;
-  border-color: rgba(0, 122, 255, 0.3);
+  border-color: var(--accent-focus-border);
 }
 
 @keyframes pulse {

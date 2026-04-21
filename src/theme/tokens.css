@@ -1,0 +1,244 @@
+/* DESIGN_SYSTEM.md §4 — 다크 기본, 라이트는 [data-theme="light"] */
+
+:root,
+[data-theme="dark"] {
+  /* 브랜드 */
+  --brand-500: #007aff;
+  --brand-600: #5e5ce6;
+  --brand-grad: linear-gradient(135deg, #007aff, #5e5ce6);
+
+  /* 표면 */
+  --bg-base: #08080d;
+  --bg-elev-1: rgba(255, 255, 255, 0.03);
+  --bg-elev-2: rgba(255, 255, 255, 0.06);
+  --bg-elev-3: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  /* 텍스트 */
+  --text-primary: #e5e5ea;
+  --text-secondary: #a0a0a8;
+  --text-tertiary: #636366;
+  --text-disabled: #48484a;
+  --text-meta: #8e8e93;
+  --text-assistant: #d1d1d6;
+  --text-summary: #b0b0b8;
+  --text-chip: #c7c7cc;
+  --text-footer: #3a3a3c;
+  --text-on-brand: #fff;
+
+  /* 리스크 */
+  --risk-high: #ff3b30;
+  --risk-high-bg: rgba(255, 59, 48, 0.12);
+  --risk-high-border: rgba(255, 59, 48, 0.4);
+  --risk-high-priority: #ff6961;
+  --risk-high-accent: rgba(255, 59, 48, 0.35);
+  --risk-med: #ff9f0a;
+  --risk-med-bg: rgba(255, 159, 10, 0.12);
+  --risk-med-border: rgba(255, 159, 10, 0.4);
+  --risk-med-soft-bg: rgba(255, 159, 10, 0.1);
+  --risk-med-panel-bg: rgba(255, 159, 10, 0.04);
+  --risk-med-panel-border: rgba(255, 159, 10, 0.1);
+  --risk-med-text-soft: #d4a04a;
+  --risk-low: #30d158;
+  --risk-low-bg: rgba(48, 209, 88, 0.12);
+  --risk-low-border: rgba(48, 209, 88, 0.4);
+  --risk-low-soft-bg: rgba(48, 209, 88, 0.05);
+  --risk-check-pass: rgba(48, 209, 88, 0.06);
+  --risk-check-fail: rgba(255, 59, 48, 0.06);
+  --risk-check-warn: rgba(255, 159, 10, 0.06);
+  --risk-check-na: rgba(142, 142, 147, 0.03);
+
+  --info: #5ac8fa;
+  --info-bg: rgba(90, 200, 250, 0.12);
+  --accent-recommend: #64b5f6;
+  --accent-recommend-bg: rgba(0, 122, 255, 0.05);
+  --accent-recommend-strong-bg: rgba(0, 122, 255, 0.15);
+  --accent-attach-bg: rgba(0, 122, 255, 0.08);
+  --accent-attach-border: rgba(0, 122, 255, 0.18);
+  --accent-button-bg: rgba(0, 122, 255, 0.1);
+  --accent-button-border: rgba(0, 122, 255, 0.2);
+  --accent-tab-active: rgba(0, 122, 255, 0.12);
+  --accent-hover-bg: rgba(0, 122, 255, 0.08);
+  --accent-hover-border: rgba(0, 122, 255, 0.2);
+  --accent-chip-border: rgba(0, 122, 255, 0.3);
+  --accent-radar-fill: rgba(0, 122, 255, 0.1);
+  --accent-focus-border: rgba(0, 122, 255, 0.3);
+
+  --surface-row: rgba(255, 255, 255, 0.02);
+  --surface-row-hover: rgba(255, 255, 255, 0.05);
+  --surface-header-border: rgba(255, 255, 255, 0.05);
+  --surface-panel: rgba(255, 255, 255, 0.04);
+  --surface-border-08: rgba(255, 255, 255, 0.08);
+  --surface-border-07: rgba(255, 255, 255, 0.07);
+  --surface-border-10: rgba(255, 255, 255, 0.1);
+  --surface-chart-line: rgba(255, 255, 255, 0.05);
+  --surface-gauge-track: rgba(255, 255, 255, 0.06);
+  --surface-check-bar: rgba(255, 255, 255, 0.04);
+  --surface-send-idle: rgba(255, 255, 255, 0.06);
+
+  --radial-brand: radial-gradient(circle, rgba(0, 122, 255, 0.06) 0%, transparent 70%);
+  --radial-purple: radial-gradient(circle, rgba(94, 92, 230, 0.04) 0%, transparent 70%);
+
+  --grad-pdf: linear-gradient(135deg, #ff9500, #ff2d55);
+  --hero-text-grad: linear-gradient(135deg, #ffffff, #8e8ea0);
+
+  --sp-0: 0;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --t-display: 700 28px/34px;
+  --t-h1: 600 22px/28px;
+  --t-h2: 600 18px/24px;
+  --t-h3: 600 15px/22px;
+  --t-body: 400 14px/22px;
+  --t-body-strong: 500 14px/22px;
+  --t-small: 400 12px/18px;
+  --t-caption: 500 11px/16px;
+  --t-micro: 600 10px/14px;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+  --dur-quick: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 400ms;
+  --dur-stall: 1000ms;
+
+  --chart-fallback: #888888;
+}
+
+[data-theme="light"] {
+  --brand-500: #0062cc;
+  --brand-600: #4a48c7;
+  --brand-grad: linear-gradient(135deg, #0062cc, #4a48c7);
+
+  --bg-base: #ffffff;
+  --bg-elev-1: rgba(10, 10, 15, 0.03);
+  --bg-elev-2: rgba(10, 10, 15, 0.06);
+  --bg-elev-3: rgba(10, 10, 15, 0.1);
+  --border-subtle: rgba(10, 10, 15, 0.08);
+  --border-strong: rgba(10, 10, 15, 0.16);
+
+  --text-primary: #1a1a1f;
+  --text-secondary: #55555c;
+  --text-tertiary: #8e8e93;
+  --text-disabled: #c7c7cc;
+  --text-meta: #636366;
+  --text-assistant: #3a3a44;
+  --text-summary: #55555c;
+  --text-chip: #55555c;
+  --text-footer: #aeaeb2;
+  --text-on-brand: #fff;
+
+  --risk-high: #d70015;
+  --risk-high-bg: rgba(215, 0, 21, 0.08);
+  --risk-high-border: rgba(215, 0, 21, 0.45);
+  --risk-high-priority: #d70015;
+  --risk-high-accent: rgba(215, 0, 21, 0.35);
+  --risk-med: #c93400;
+  --risk-med-bg: rgba(201, 52, 0, 0.08);
+  --risk-med-border: rgba(201, 52, 0, 0.45);
+  --risk-med-soft-bg: rgba(201, 52, 0, 0.12);
+  --risk-med-panel-bg: rgba(201, 52, 0, 0.06);
+  --risk-med-panel-border: rgba(201, 52, 0, 0.15);
+  --risk-med-text-soft: #b45309;
+  --risk-low: #248a3d;
+  --risk-low-bg: rgba(36, 138, 61, 0.08);
+  --risk-low-border: rgba(36, 138, 61, 0.45);
+  --risk-low-soft-bg: rgba(36, 138, 61, 0.08);
+  --risk-check-pass: rgba(36, 138, 61, 0.1);
+  --risk-check-fail: rgba(215, 0, 21, 0.08);
+  --risk-check-warn: rgba(201, 52, 0, 0.1);
+  --risk-check-na: rgba(142, 142, 147, 0.08);
+
+  --info: #0071a4;
+  --info-bg: rgba(0, 113, 164, 0.12);
+  --accent-recommend: #0071a4;
+  --accent-recommend-bg: rgba(0, 98, 204, 0.08);
+  --accent-recommend-strong-bg: rgba(0, 98, 204, 0.12);
+  --accent-attach-bg: rgba(0, 98, 204, 0.1);
+  --accent-attach-border: rgba(0, 98, 204, 0.22);
+  --accent-button-bg: rgba(0, 98, 204, 0.12);
+  --accent-button-border: rgba(0, 98, 204, 0.28);
+  --accent-tab-active: rgba(0, 98, 204, 0.14);
+  --accent-hover-bg: rgba(0, 98, 204, 0.1);
+  --accent-hover-border: rgba(0, 98, 204, 0.25);
+  --accent-chip-border: rgba(0, 98, 204, 0.35);
+  --accent-radar-fill: rgba(0, 98, 204, 0.12);
+  --accent-focus-border: rgba(0, 98, 204, 0.35);
+
+  --surface-row: rgba(10, 10, 15, 0.04);
+  --surface-row-hover: rgba(10, 10, 15, 0.08);
+  --surface-header-border: rgba(10, 10, 15, 0.08);
+  --surface-panel: rgba(10, 10, 15, 0.04);
+  --surface-border-08: rgba(10, 10, 15, 0.1);
+  --surface-border-07: rgba(10, 10, 15, 0.1);
+  --surface-border-10: rgba(10, 10, 15, 0.12);
+  --surface-chart-line: rgba(10, 10, 15, 0.08);
+  --surface-gauge-track: rgba(10, 10, 15, 0.1);
+  --surface-check-bar: rgba(10, 10, 15, 0.06);
+  --surface-send-idle: rgba(10, 10, 15, 0.08);
+
+  --radial-brand: radial-gradient(circle, rgba(0, 98, 204, 0.08) 0%, transparent 70%);
+  --radial-purple: radial-gradient(circle, rgba(74, 72, 199, 0.06) 0%, transparent 70%);
+
+  --grad-pdf: linear-gradient(135deg, #ea580c, #be123c);
+  --hero-text-grad: linear-gradient(135deg, #1a1a1f, #8e8e93);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family:
+    "Pretendard Variable",
+    Pretendard,
+    -apple-system,
+    "SF Pro Display",
+    BlinkMacSystemFont,
+    "Apple SD Gothic Neo",
+    sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-focus-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
