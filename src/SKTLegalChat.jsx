@@ -833,13 +833,15 @@ export default function SKTLegalChat() {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {/* File attach button */}
             <button type="button" onClick={() => fileInputRef.current?.click()} style={{
-              width: 40, height: 40, borderRadius: 12, border: "1px solid var(--surface-border-08)",
+              width: 32, height: 32, borderRadius: 10, border: "1px solid var(--surface-border-08)",
               background: "var(--surface-panel)", color: "var(--text-meta)", fontSize: 18,
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              +
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1, padding: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M8 3.2V12.8M3.2 8H12.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
             </button>
             <input ref={fileInputRef} type="file" accept=".pdf,.txt,.doc,.docx,.md,.csv"
               style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); e.target.value = ""; }} />
@@ -858,12 +860,16 @@ export default function SKTLegalChat() {
                 }}/>
               <button onClick={sendMessage} disabled={loading || (!input.trim() && !fileContent)}
                 style={{
-                  position: "absolute", right: 6, bottom: 5, width: 32, height: 32, borderRadius: 10,
+                  position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 32, height: 32, borderRadius: 10,
                   border: "none", cursor: loading ? "default" : "pointer",
                   background: (input.trim() || fileContent) && !loading ? "var(--brand-grad)" : "var(--surface-send-idle)",
-                  color: "var(--text-on-brand)", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--text-on-brand)", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0,
                   transition: "background 0.2s",
-                }}>↑</button>
+                }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M8 12.8V3.2M8 3.2L4.8 6.4M8 3.2L11.2 6.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
           </div>
 
