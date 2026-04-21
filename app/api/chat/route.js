@@ -100,24 +100,25 @@ ${lawsSection}
 /** v1beta에서 없어지거나 키/지역에 없는 모델 ID → 안전한 기본값으로 치환 */
 function normalizeGeminiModelId(raw) {
   const id = String(raw || "").trim().replace(/^models\//i, "");
-  if (!id) return "gemini-1.5-flash";
+  if (!id) return "gemini-2.5-flash";
   const m = id.toLowerCase();
 
   /* 1.5-flash-latest 만 v1beta에서 자주 없음 → 무접미사 1.5-flash 로 */
   if (m === "gemini-1.5-flash-latest") return "gemini-1.5-flash";
 
   const allow = new Set([
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-latest",
     "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
     "gemini-2.0-flash",
-    "gemini-2.5-flash-latest",
   ]);
   if (allow.has(m)) return id;
 
   /* 날짜 붙은 preview 등은 불안정 */
-  if (/preview/i.test(m)) return "gemini-1.5-flash";
+  if (/preview/i.test(m)) return "gemini-2.5-flash";
 
-  if (/gemini-1\.5-pro|gemini-1\.0-pro|^gemini-pro$/i.test(m)) return "gemini-1.5-flash";
+  if (/gemini-1\.5-pro|gemini-1\.0-pro|^gemini-pro$/i.test(m)) return "gemini-2.5-flash";
 
   return id;
 }
@@ -127,9 +128,9 @@ export async function POST(request) {
     const body = await request.json();
     const { message, fileData, fileType } = body;
     const apiKey = process.env.GEMINI_API_KEY;
-    /* 무료 등급에서 Pro/2.0 한도가 0인 경우가 많아 기본은 Flash 계열 */
+    /* 무료 등급에서 한도가 있는 모델이 프로젝트마다 다름 → 기본은 2.5 Flash 우선 */
     const envModel = normalizeGeminiModelId(
-      process.env.GEMINI_MODEL || "gemini-1.5-flash"
+      process.env.GEMINI_MODEL || "gemini-2.5-flash"
     );
 
     if (!apiKey) {
@@ -179,11 +180,13 @@ export async function POST(request) {
       },
     };
 
+    /* AI Studio 무료 등급에서 한도가 있는 모델이 2.5 Flash인 경우가 많아 먼저 시도 */
     const candidateModels = [
       ...new Set([
         envModel,
-        "gemini-1.5-flash",
+        "gemini-2.5-flash",
         "gemini-2.5-flash-latest",
+        "gemini-1.5-flash",
         "gemini-1.5-flash-8b",
         "gemini-2.0-flash",
       ]),
@@ -266,7 +269,7 @@ export async function POST(request) {
       lower.includes("insufficient") ||
       lower.includes("exceeded");
     const providerMessage = isBillingIssue
-      ? "Gemini 쿼터/한도 문제입니다. AI Studio 비율 제한에서 해당 모델 한도가 0이면 무료로 호출이 불가합니다. GEMINI_MODEL을 gemini-1.5-flash로 두거나 결제를 활성화하세요."
+      ? "Gemini 쿼터/한도 문제입니다. AI Studio 비율 제한에서 한도가 0인 모델은 호출할 수 없습니다. GEMINI_MODEL을 비율 제한에 숫자가 있는 모델(예: gemini-2.5-flash)로 두거나 결제를 활성화하세요."
       : rawMessage;
 
     return NextResponse.json(
