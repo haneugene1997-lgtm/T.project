@@ -103,20 +103,21 @@ function normalizeGeminiModelId(raw) {
   if (!id) return "gemini-1.5-flash";
   const m = id.toLowerCase();
 
+  /* 1.5-flash-latest 만 v1beta에서 자주 없음 → 무접미사 1.5-flash 로 */
+  if (m === "gemini-1.5-flash-latest") return "gemini-1.5-flash";
+
   const allow = new Set([
     "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
     "gemini-2.0-flash",
+    "gemini-2.5-flash-latest",
   ]);
   if (allow.has(m)) return id;
 
-  /* -latest 별칭은 키/지역마다 v1beta에 없을 수 있음 */
-  if (/-latest$/i.test(m) || m.includes("-latest")) return "gemini-1.5-flash";
+  /* 날짜 붙은 preview 등은 불안정 */
+  if (/preview/i.test(m)) return "gemini-1.5-flash";
 
-  /* Pro·구버전·preview(자주 폐기됨)·2.5 실험 ID 등은 그대로 두면 400/404가 난다 */
-  const risky =
-    /gemini-1\.5-pro|gemini-1\.0-pro|^gemini-pro$|preview|gemini-2\.5/i.test(m);
-  if (risky) return "gemini-1.5-flash";
+  if (/gemini-1\.5-pro|gemini-1\.0-pro|^gemini-pro$/i.test(m)) return "gemini-1.5-flash";
 
   return id;
 }
@@ -182,6 +183,7 @@ export async function POST(request) {
       ...new Set([
         envModel,
         "gemini-1.5-flash",
+        "gemini-2.5-flash-latest",
         "gemini-1.5-flash-8b",
         "gemini-2.0-flash",
       ]),
