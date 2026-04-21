@@ -102,7 +102,8 @@ export async function POST(request) {
     const body = await request.json();
     const { message, fileData, fileType } = body;
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-1.5-pro";
+    /* 무료 등급에서 Pro/2.0 한도가 0인 경우가 많아 기본은 Flash 계열 */
+    const envModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
     if (!apiKey) {
       return NextResponse.json(
@@ -134,28 +135,57 @@ export async function POST(request) {
       userParts = [{ text: message }];
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: {
-          role: "system",
-          parts: [{ text: buildSystemPrompt() }],
+    const requestPayload = {
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: buildSystemPrompt() }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: userParts,
         },
-        contents: [
-          {
-            role: "user",
-            parts: userParts,
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 4096,
-          temperature: 0.2,
-        },
-      }),
-    });
-    const responseJson = await response.json();
+      ],
+      generationConfig: {
+        maxOutputTokens: 4096,
+        temperature: 0.2,
+      },
+    };
+
+    const candidateModels = [
+      ...new Set([
+        envModel,
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro",
+      ]),
+    ].filter(Boolean);
+
+    let response;
+    let responseJson;
+    for (const m of candidateModels) {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
+      responseJson = await response.json();
+      if (response.ok) break;
+      const errLower = String(responseJson?.error?.message || "").toLowerCase();
+      const isModelNotFound =
+        response.status === 404 || errLower.includes("not found");
+      if (isModelNotFound) continue;
+      const isQuota =
+        response.status === 429 ||
+        errLower.includes("resource_exhausted") ||
+        errLower.includes("quota");
+      if (isQuota) continue;
+      break;
+    }
+
     if (!response.ok) {
       const providerErr =
         responseJson?.error?.message ||
@@ -163,6 +193,7 @@ export async function POST(request) {
         `Gemini API 오류 (${response.status})`;
       const e = new Error(providerErr);
       e.status = response.status;
+      e.detail = responseJson;
       throw e;
     }
 
@@ -195,14 +226,20 @@ export async function POST(request) {
       error?.message ||
       "분석 중 오류가 발생했습니다.";
     const lower = String(rawMessage).toLowerCase();
-    const isBillingIssue = lower.includes("quota") || lower.includes("billing") || lower.includes("insufficient") || lower.includes("exceeded");
+    const isBillingIssue =
+      status === 429 ||
+      lower.includes("quota") ||
+      lower.includes("resource_exhausted") ||
+      lower.includes("billing") ||
+      lower.includes("insufficient") ||
+      lower.includes("exceeded");
     const providerMessage = isBillingIssue
-      ? "Gemini API 사용량/결제 한도에 도달했습니다. Google AI Studio 또는 GCP 결제/쿼터를 확인한 뒤 다시 시도해주세요."
+      ? "Gemini 쿼터/한도 문제입니다. AI Studio 비율 제한에서 해당 모델 한도가 0이면 무료로 호출이 불가합니다. GEMINI_MODEL을 gemini-1.5-flash로 두거나 결제를 활성화하세요."
       : rawMessage;
 
     return NextResponse.json(
       { error: providerMessage },
-      { status: isBillingIssue ? 402 : status }
+      { status: isBillingIssue ? 429 : status }
     );
   }
 }

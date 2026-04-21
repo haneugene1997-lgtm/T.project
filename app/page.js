@@ -146,8 +146,9 @@ export default function SKTLegalChat() {
     }
   }, []);
 
-  const sendMessage = async () => {
-    const text = input.trim();
+  const sendMessage = async (textOverride) => {
+    if (loading) return;
+    const text = (textOverride != null ? String(textOverride) : input).trim();
     if (!text && !fileContent) return;
 
     const userMsg = {
@@ -400,7 +401,7 @@ export default function SKTLegalChat() {
                   "이용약관에 일방적 변경 조항이 있으면 문제 돼?",
                   "통신비밀 보호 관련 SKT가 주의할 점은?",
                 ].map((prompt) => (
-                  <button key={prompt} onClick={() => setInput(prompt)}
+                  <button key={prompt} onClick={() => { setInput(prompt); void sendMessage(prompt); }}
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
                       borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#a0a0a8",
                       cursor: "pointer", textAlign: "left", transition: "all 0.2s", lineHeight: 1.4 }}
