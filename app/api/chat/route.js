@@ -106,10 +106,12 @@ function normalizeGeminiModelId(raw) {
   const allow = new Set([
     "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
-    "gemini-1.5-flash-latest",
     "gemini-2.0-flash",
   ]);
   if (allow.has(m)) return id;
+
+  /* -latest 별칭은 키/지역마다 v1beta에 없을 수 있음 */
+  if (/-latest$/i.test(m) || m.includes("-latest")) return "gemini-1.5-flash";
 
   /* Pro·구버전·preview(자주 폐기됨)·2.5 실험 ID 등은 그대로 두면 400/404가 난다 */
   const risky =
@@ -182,7 +184,6 @@ export async function POST(request) {
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b",
         "gemini-2.0-flash",
-        "gemini-1.5-flash-latest",
       ]),
     ].filter(Boolean);
 
