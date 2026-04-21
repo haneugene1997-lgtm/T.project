@@ -97,13 +97,31 @@ ${lawsSection}
 - SKT 통신사업자 특수성 반영`;
 }
 
+/** v1beta에서 사라지거나 이름이 바뀐 모델 → 살아있는 후보만 쓰도록 정규화 */
+function normalizeGeminiModelId(raw) {
+  const m = String(raw || "").trim().toLowerCase();
+  if (!m) return "gemini-1.5-flash";
+  const legacy = [
+    "gemini-1.5-pro",
+    "gemini-1.0-pro",
+    "gemini-pro",
+    "models/gemini-1.5-pro",
+  ];
+  if (legacy.some((x) => m === x || m.endsWith(x.replace("models/", "")))) {
+    return "gemini-1.5-flash";
+  }
+  return raw.trim().replace(/^models\//, "");
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
     const { message, fileData, fileType } = body;
     const apiKey = process.env.GEMINI_API_KEY;
     /* 무료 등급에서 Pro/2.0 한도가 0인 경우가 많아 기본은 Flash 계열 */
-    const envModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    const envModel = normalizeGeminiModelId(
+      process.env.GEMINI_MODEL || "gemini-1.5-flash"
+    );
 
     if (!apiKey) {
       return NextResponse.json(
@@ -159,7 +177,7 @@ export async function POST(request) {
         "gemini-1.5-flash-8b",
         "gemini-2.0-flash",
         "gemini-1.5-flash-latest",
-        "gemini-1.5-pro",
+        "gemini-2.5-flash-preview-05-20",
       ]),
     ].filter(Boolean);
 
@@ -176,7 +194,13 @@ export async function POST(request) {
       if (response.ok) break;
       const errLower = String(responseJson?.error?.message || "").toLowerCase();
       const isModelNotFound =
-        response.status === 404 || errLower.includes("not found");
+        response.status === 404 ||
+        response.status === 400 ||
+        errLower.includes("not found") ||
+        errLower.includes("is not supported") ||
+        errLower.includes("unsupported") ||
+        errLower.includes("invalid model") ||
+        errLower.includes("unknown model");
       if (isModelNotFound) continue;
       const isQuota =
         response.status === 429 ||
