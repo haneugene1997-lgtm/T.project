@@ -97,20 +97,26 @@ ${lawsSection}
 - SKT 통신사업자 특수성 반영`;
 }
 
-/** v1beta에서 사라지거나 이름이 바뀐 모델 → 살아있는 후보만 쓰도록 정규화 */
+/** v1beta에서 없어지거나 키/지역에 없는 모델 ID → 안전한 기본값으로 치환 */
 function normalizeGeminiModelId(raw) {
-  const m = String(raw || "").trim().toLowerCase();
-  if (!m) return "gemini-1.5-flash";
-  const legacy = [
-    "gemini-1.5-pro",
-    "gemini-1.0-pro",
-    "gemini-pro",
-    "models/gemini-1.5-pro",
-  ];
-  if (legacy.some((x) => m === x || m.endsWith(x.replace("models/", "")))) {
-    return "gemini-1.5-flash";
-  }
-  return raw.trim().replace(/^models\//, "");
+  const id = String(raw || "").trim().replace(/^models\//i, "");
+  if (!id) return "gemini-1.5-flash";
+  const m = id.toLowerCase();
+
+  const allow = new Set([
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-flash-latest",
+    "gemini-2.0-flash",
+  ]);
+  if (allow.has(m)) return id;
+
+  /* Pro·구버전·preview(자주 폐기됨)·2.5 실험 ID 등은 그대로 두면 400/404가 난다 */
+  const risky =
+    /gemini-1\.5-pro|gemini-1\.0-pro|^gemini-pro$|preview|gemini-2\.5/i.test(m);
+  if (risky) return "gemini-1.5-flash";
+
+  return id;
 }
 
 export async function POST(request) {
