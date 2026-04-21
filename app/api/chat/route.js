@@ -109,6 +109,8 @@ function normalizeGeminiModelId(raw) {
   const allow = new Set([
     "gemini-2.5-flash",
     "gemini-2.5-flash-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash",
     "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
     "gemini-2.0-flash",
@@ -186,6 +188,8 @@ export async function POST(request) {
         envModel,
         "gemini-2.5-flash",
         "gemini-2.5-flash-latest",
+        "gemini-2.5-flash-lite",
+        "gemini-3-flash",
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b",
         "gemini-2.0-flash",
@@ -269,7 +273,7 @@ export async function POST(request) {
       lower.includes("insufficient") ||
       lower.includes("exceeded");
     const providerMessage = isBillingIssue
-      ? "Gemini 쿼터/한도 문제입니다. AI Studio 비율 제한에서 한도가 0인 모델은 호출할 수 없습니다. GEMINI_MODEL을 비율 제한에 숫자가 있는 모델(예: gemini-2.5-flash)로 두거나 결제를 활성화하세요."
+      ? "Gemini 쿼터/한도 문제입니다. AI Studio 비율 제한에서 한도가 0인 모델은 호출할 수 없습니다. GEMINI_MODEL을 한도가 있는 모델(예: gemini-2.5-flash, gemini-2.5-flash-lite)로 두거나 결제를 활성화하세요."
       : rawMessage;
 
     return NextResponse.json(
