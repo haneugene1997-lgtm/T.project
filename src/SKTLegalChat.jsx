@@ -224,7 +224,7 @@ ${result.priority_actions?.length?`<div class="priority"><strong>🚨 우선 시
    MAIN APP — 대화형 인터페이스
    ═══════════════════════════════════════════════ */
 export default function SKTLegalChat() {
-  const [messages, setMessages] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [input, setInput] = useState("");
   const [attachedFile, setAttachedFile] = useState(null);
   const [fileContent, setFileContent] = useState(null);
@@ -263,7 +263,7 @@ export default function SKTLegalChat() {
   }, []);
 
   /* auto-scroll */
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, loading]);
 
   /* auto-resize textarea */
   useEffect(() => {
@@ -293,8 +293,9 @@ export default function SKTLegalChat() {
   const removeFile = () => { setAttachedFile(null); setFileContent(null); };
 
   /* send message — 대화 전체를 /api/chat 프록시로 전달 (API 키는 서버만) */
-  const sendMessage = async () => {
-    const text = input.trim();
+  const sendMessage = async (textOverride) => {
+    if (loading) return;
+    const text = (textOverride != null ? String(textOverride) : input).trim();
     if (!text && !fileContent) return;
 
     let content;
@@ -319,7 +320,7 @@ export default function SKTLegalChat() {
     };
 
     const anthropicMessages = [];
-    for (const m of [...messages, userMsg]) {
+    for (const m of [...chatMessages, userMsg]) {
       const role = m.role === "user" ? "user" : "assistant";
       let c;
       if (m.role === "user") {
@@ -331,7 +332,9 @@ export default function SKTLegalChat() {
       anthropicMessages.push({ role, content: c });
     }
 
-    setMessages((prev) => [...prev, userMsg]);
+    if (anthropicMessages.length === 0) return;
+
+    setChatMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
@@ -348,7 +351,8 @@ export default function SKTLegalChat() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || data.detail?.error?.message || `API ${res.status}`);
+        const msg = [data.error, data.hint].filter(Boolean).join(" ");
+        throw new Error(msg || data.detail?.error?.message || `API ${res.status}`);
       }
       const responseText = (data.content || []).map((c) => c.text || "").join("");
 
@@ -371,7 +375,7 @@ export default function SKTLegalChat() {
         time: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
       };
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      setChatMessages((prev) => [...prev, assistantMsg]);
 
       if (analysis) {
         const entry = {
@@ -383,7 +387,7 @@ export default function SKTLegalChat() {
         saveHistory((prev) => [entry, ...prev].slice(0, 30));
       }
     } catch (err) {
-      setMessages((prev) => [
+      setChatMessages((prev) => [
         ...prev,
         {
           role: "assistant",
@@ -677,7 +681,7 @@ export default function SKTLegalChat() {
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
 
           {/* Welcome message */}
-          {messages.length === 0 && (
+          {chatMessages.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 20px 40px" }}>
               <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.8 }}>⚖️</div>
               <h2 style={{ fontSize: 20, fontWeight: 600, margin: "0 0 10px",
@@ -696,7 +700,7 @@ export default function SKTLegalChat() {
                   "이용약관에 일방적 변경 조항이 있으면 문제 돼?",
                   "통신비밀 보호 관련 SKT가 주의할 점은?",
                 ].map((prompt) => (
-                  <button key={prompt} onClick={() => { setInput(prompt); }}
+                  <button key={prompt} onClick={() => { setInput(prompt); void sendMessage(prompt); }}
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
                       borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "#a0a0a8",
                       cursor: "pointer", textAlign: "left", transition: "all 0.2s", lineHeight: 1.4 }}
@@ -721,7 +725,7 @@ export default function SKTLegalChat() {
           )}
 
           {/* Messages */}
-          {messages.map((msg, i) => (
+          {chatMessages.map((msg, i) => (
             <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 14 }}>
               <div style={{ maxWidth: "85%", minWidth: 60 }}>
                 {/* User bubble */}
