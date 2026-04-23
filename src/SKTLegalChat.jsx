@@ -288,7 +288,7 @@ export default function SKTLegalChat() {
     if (!f) return;
     const ext = f.name.split(".").pop().toLowerCase();
     if (f.size > 10 * 1024 * 1024) return;
-    if (!["pdf", "txt", "doc", "docx", "md", "csv"].includes(ext)) return;
+    if (!["pdf", "txt", "doc", "docx", "md", "csv", "xls", "xlsx", "xlsm"].includes(ext)) return;
     setAttachedFile({ name: f.name, size: f.size, type: ext });
     const mimeTypeMap = {
       pdf: "application/pdf",
@@ -297,9 +297,12 @@ export default function SKTLegalChat() {
       csv: "text/csv",
       doc: "application/msword",
       docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
     };
     const reader = new FileReader();
-    if (ext === "pdf" || ext === "doc" || ext === "docx") {
+    if (ext === "pdf" || ext === "doc" || ext === "docx" || ext === "xls" || ext === "xlsx" || ext === "xlsm") {
       reader.onload = (e) =>
         setFileContent({
           type: "inline",
@@ -862,7 +865,7 @@ export default function SKTLegalChat() {
                 <path d="M8 3.2V12.8M3.2 8H12.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </button>
-            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.doc,.docx,.md,.csv"
+            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.doc,.docx,.md,.csv,.xls,.xlsx,.xlsm"
               style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); e.target.value = ""; }} />
 
             {/* Text input */}
