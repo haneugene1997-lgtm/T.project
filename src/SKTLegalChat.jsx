@@ -246,6 +246,7 @@ export default function SKTLegalChat() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [analysisSourceFileName, setAnalysisSourceFileName] = useState(null);
+  const [uploadNotice, setUploadNotice] = useState("");
 
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -287,8 +288,16 @@ export default function SKTLegalChat() {
   const handleFileSelect = useCallback((f) => {
     if (!f) return;
     const ext = f.name.split(".").pop().toLowerCase();
-    if (f.size > 10 * 1024 * 1024) return;
-    if (!["pdf", "txt", "doc", "docx", "md", "csv", "xls", "xlsx", "xlsm"].includes(ext)) return;
+    const maxUploadBytes = 10 * 1024 * 1024;
+    if (f.size > maxUploadBytes) {
+      setUploadNotice("파일 용량이 너무 큽니다. 10MB 이하 파일만 첨부할 수 있습니다.");
+      return;
+    }
+    if (!["pdf", "txt", "doc", "docx", "md", "csv", "xls", "xlsx", "xlsm"].includes(ext)) {
+      setUploadNotice("지원하지 않는 파일 형식입니다. pdf/txt/doc/docx/md/csv/xls/xlsx/xlsm만 업로드할 수 있습니다.");
+      return;
+    }
+    setUploadNotice("");
     setAttachedFile({ name: f.name, size: f.size, type: ext });
     const mimeTypeMap = {
       pdf: "application/pdf",
@@ -321,7 +330,7 @@ export default function SKTLegalChat() {
     }
   }, []);
 
-  const removeFile = () => { setAttachedFile(null); setFileContent(null); };
+  const removeFile = () => { setAttachedFile(null); setFileContent(null); setUploadNotice(""); };
 
   /* send message — Next.js /api/chat (Gemini 프록시) */
   const sendMessage = async (textOverride) => {
@@ -852,6 +861,21 @@ export default function SKTLegalChat() {
               borderRadius: 10, padding: "6px 12px", marginBottom: 8, fontSize: 12, color: "var(--accent-recommend)" }}>
               📎 {attachedFile.name}
               <button onClick={removeFile} style={{ background: "none", border: "none", color: "var(--risk-high)", fontSize: 14, cursor: "pointer", padding: 0, marginLeft: 4 }}>×</button>
+            </div>
+          )}
+          {!attachedFile && uploadNotice && (
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "var(--risk-med-bg)",
+              border: "1px solid var(--risk-med-border)",
+              borderRadius: 10,
+              padding: "6px 10px",
+              marginBottom: 8,
+              fontSize: 11,
+              color: "var(--risk-med)",
+            }}>
+              ⚠️ {uploadNotice}
             </div>
           )}
 
