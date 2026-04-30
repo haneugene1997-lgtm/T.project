@@ -137,6 +137,18 @@ const FILE_FIRST_MODELS = [
   "gemini-2.0-flash",
 ];
 
+/* 무료 티어 소모 억제를 위한 입력/출력 예산 */
+const MAX_TEXT_FILE_CHARS = 12000;
+const MAX_INLINE_BASE64_CHARS = 1_800_000;
+
+function squeezeTextForBudget(text) {
+  const s = String(text || "");
+  if (s.length <= MAX_TEXT_FILE_CHARS) return s;
+  const head = s.slice(0, 8000);
+  const tail = s.slice(-3500);
+  return `${head}\n\n[...중략: 길이 절약을 위해 ${s.length - (head.length + tail.length)}자 생략...]\n\n${tail}`;
+}
+
 function uniqModels(ids) {
   const out = [];
   const seen = new Set();
@@ -150,37 +162,24 @@ function uniqModels(ids) {
 }
 
 /**
- * 사용자가 모델을 고르면 그 모델만 호출 (연속 호출로 RPM 소모 방지).
- * 자동이면 소수의 후보만 시도 (무료 등급 RPM/RPD 보호).
  * @param {{ hasFile: boolean; envModel: string; clientModel?: string | null; envFileModel?: string | null }} o
  */
 function buildCandidateModels(o) {
   const { hasFile, envModel, clientModel, envFileModel } = o;
-  const explicit =
-    typeof clientModel === "string" && clientModel.trim()
-      ? normalizeGeminiModelId(clientModel.trim())
-      : "";
-  if (explicit) {
-    return [explicit];
-  }
-
-  const maxTry = Math.min(
-    8,
-    Math.max(1, parseInt(String(process.env.GEMINI_MAX_MODEL_TRIES || "4"), 10) || 4)
-  );
+  const client = clientModel ? normalizeGeminiModelId(clientModel) : "";
   const filePref = envFileModel ? normalizeGeminiModelId(envFileModel) : "";
 
   if (hasFile) {
-    const chain = uniqModels([filePref, ...FILE_FIRST_MODELS, envModel]);
-    return chain.slice(0, maxTry);
+    return uniqModels([
+      client,
+      filePref,
+      ...FILE_FIRST_MODELS,
+      envModel,
+      "gemini-2.5-pro",
+    ]);
   }
 
-  const chain = uniqModels([envModel, "gemini-2.5-flash-lite", "gemini-2.5-flash", ...FILE_FIRST_MODELS]);
-  return chain.slice(0, maxTry);
-}
-
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  return uniqModels([client, envModel, ...FILE_FIRST_MODELS, "gemini-2.5-pro"]);
 }
 
 export async function POST(request) {
@@ -211,20 +210,31 @@ export async function POST(request) {
     // Build user content
     let userParts;
     if (fileData && fileType === "inline") {
+      if (String(fileData).length > MAX_INLINE_BASE64_CHARS) {
+        return NextResponse.json(
+          {
+            error:
+              "첨부 파일이 너무 커서 무료 티어 한도를 초과할 수 있습니다. 1) 파일 크기를 줄이거나 2) 핵심 시트/본문만 발췌해 다시 업로드해주세요.",
+          },
+          { status: 413 }
+        );
+      }
       userParts = [
         { inline_data: { mime_type: fileMimeType || "application/octet-stream", data: fileData } },
         { text: message || "이 문서를 법무 컴플라이언스 관점에서 분석해주세요." },
       ];
     } else if (fileData) {
+      const compactText = squeezeTextForBudget(fileData);
       userParts = [
         {
-          text: `${message ? message + "\n\n---\n\n" : ""}다음 문서를 법무 컴플라이언스 관점에서 분석해주세요:\n\n${fileData}`,
+          text: `${message ? message + "\n\n---\n\n" : ""}다음 문서를 법무 컴플라이언스 관점에서 분석해주세요:\n\n${compactText}`,
         },
       ];
     } else {
       userParts = [{ text: message }];
     }
 
+    const hasFile = Boolean(fileData);
     const requestPayload = {
       systemInstruction: {
         role: "system",
@@ -237,14 +247,11 @@ export async function POST(request) {
         },
       ],
       generationConfig: {
-        maxOutputTokens: 4096,
-        temperature: 0.2,
+        /* 파일 분석은 응답 길이를 줄여 TPM/RPM 소모를 낮춤 */
+        maxOutputTokens: hasFile ? 1600 : 2400,
+        temperature: hasFile ? 0.1 : 0.2,
       },
     };
-
-    const hasFile = Boolean(fileData);
-    const explicitClient =
-      typeof clientModelRaw === "string" && Boolean(clientModelRaw.trim());
 
     const candidateModels = buildCandidateModels({
       hasFile,
@@ -258,60 +265,34 @@ export async function POST(request) {
 
     let response = null;
     let responseJson = null;
-    let authStop = false;
-
-    outer: for (let mi = 0; mi < candidateModels.length; mi++) {
-      const m = candidateModels[mi];
-      /* 자동 모드: 모델 전환 시 짧게 쉬어 RPM 버스트 완화 */
-      if (mi > 0 && !explicitClient) {
-        await sleep(1200);
+    for (const m of candidateModels) {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
+      const bodyText = await response.text();
+      try {
+        responseJson = JSON.parse(bodyText);
+      } catch {
+        responseJson = {
+          error: { message: bodyText?.slice(0, 400) || `HTTP ${response.status}` },
+        };
       }
-      const maxSameModelTries = explicitClient ? 2 : 1;
-      for (let attempt = 0; attempt < maxSameModelTries; attempt++) {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestPayload),
-        });
-        const retryAfterHdr = response.headers.get("retry-after");
-        const bodyText = await response.text();
-        try {
-          responseJson = JSON.parse(bodyText);
-        } catch {
-          responseJson = {
-            error: { message: bodyText?.slice(0, 400) || `HTTP ${response.status}` },
-          };
-        }
-        if (response.ok) break outer;
-
-        if (response.status === 401 || response.status === 403) {
-          authStop = true;
-          break outer;
-        }
-
-        /* 사용자 지정 모델: 429면 짧게 대기 후 1회만 재시도 (일시 RPM 한도) */
-        if (
-          explicitClient &&
-          response.status === 429 &&
-          attempt + 1 < maxSameModelTries
-        ) {
-          const sec = parseInt(String(retryAfterHdr || "").trim(), 10);
-          const waitMs = Number.isFinite(sec) && sec > 0 ? Math.min(sec * 1000, 20000) : 6000;
-          await sleep(waitMs);
-          continue;
-        }
-        break;
-      }
+      if (response.ok) break;
+      /* 키 오류는 재시도해도 동일 */
+      if (response.status === 401 || response.status === 403) break;
+      /* 쿼터·404·400(미지원 MIME 등)은 다음 모델로 순차 시도 */
     }
 
-    if (authStop || !response || !response.ok) {
+    if (!response || !response.ok) {
       const providerErr =
         responseJson?.error?.message ||
         responseJson?.error ||
-        `Gemini API 오류 (${response?.status || "?"})`;
+        `Gemini API 오류 (${response.status})`;
       const e = new Error(providerErr);
-      e.status = response?.status || 500;
+      e.status = response.status;
       e.detail = responseJson;
       throw e;
     }
@@ -353,16 +334,11 @@ export async function POST(request) {
       lower.includes("insufficient") ||
       lower.includes("exceeded");
     const providerMessage = isBillingIssue
-      ? "Gemini 요청 한도(RPM·RPD·TPM)에 걸렸습니다. 무료 등급은 분·일 단위 제한이 좁아, 연속으로 파일 분석을 하면 잠시 막힐 수 있습니다. 1~2분 후 한 번만 다시 시도하거나, Google AI Studio에서 사용량·결제를 확인하세요. (같은 요청에서 여러 모델을 연달아 호출하지 않도록 서버를 조정했습니다.)"
+      ? "Gemini 쿼터/한도 문제입니다. AI Studio에서 한도가 0인 모델은 호출할 수 없습니다. 파일 분석 시 화면의「첨부 파일용 모델」에서 gemini-2.5-flash-lite 또는 gemini-2.5-flash를 고르거나, Vercel에 GEMINI_MODEL·GEMINI_MODEL_FILES(파일 전용)를 한도 있는 모델로 설정한 뒤 재배포하세요."
       : rawMessage;
 
     return NextResponse.json(
-      {
-        error: providerMessage,
-        hint: isBillingIssue
-          ? "잠시 후 재시도 · 첨부는 가능하면 작은 파일(또는 PDF/TXT)로 줄이기"
-          : undefined,
-      },
+      { error: providerMessage },
       { status: isBillingIssue ? 429 : status }
     );
   }
