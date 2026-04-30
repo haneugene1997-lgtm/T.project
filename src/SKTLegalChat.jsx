@@ -136,6 +136,20 @@ const glass = (x = {}) => ({
   ...x,
 });
 
+/** 파일 첨부 시 Gemini 모델 (서버 후보 순서·쿼터 대응) — localStorage 키 */
+const FILE_GEMINI_MODEL_KEY = "legal-chat-file-gemini-model";
+const FILE_GEMINI_MODEL_OPTIONS = [
+  { value: "", label: "자동 (Flash Lite → Flash … 순차 시도)" },
+  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  { value: "gemini-2.5-flash-latest", label: "Gemini 2.5 Flash (latest)" },
+  { value: "gemini-3-flash", label: "Gemini 3 Flash" },
+  { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+  { value: "gemini-1.5-flash-8b", label: "Gemini 1.5 Flash-8B" },
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (유료/한도 필요)" },
+];
+
 /* ═══════════════════════════════════════════════
    Sub-components
    ═══════════════════════════════════════════════ */
@@ -247,6 +261,7 @@ export default function SKTLegalChat() {
   const [showHistory, setShowHistory] = useState(false);
   const [analysisSourceFileName, setAnalysisSourceFileName] = useState(null);
   const [uploadNotice, setUploadNotice] = useState("");
+  const [fileGeminiModel, setFileGeminiModel] = useState("");
 
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -257,6 +272,15 @@ export default function SKTLegalChat() {
     try {
       const raw = localStorage.getItem("legal-chat-history");
       if (raw) setHistory(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(FILE_GEMINI_MODEL_KEY);
+      if (v != null) setFileGeminiModel(v);
     } catch {
       /* ignore */
     }
@@ -358,6 +382,9 @@ export default function SKTLegalChat() {
           fileData: fileContent?.data || null,
           fileType: fileContent?.type || null,
           fileMimeType: fileContent?.mimeType || null,
+          ...(fileGeminiModel.trim()
+            ? { model: fileGeminiModel.trim() }
+            : {}),
         }),
       });
 
@@ -856,11 +883,45 @@ export default function SKTLegalChat() {
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
           {/* Attached file preview */}
           {attachedFile && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8,
-              background: "var(--accent-attach-bg)", border: "1px solid var(--accent-attach-border)",
-              borderRadius: 10, padding: "6px 12px", marginBottom: 8, fontSize: 12, color: "var(--accent-recommend)" }}>
-              📎 {attachedFile.name}
-              <button onClick={removeFile} style={{ background: "none", border: "none", color: "var(--risk-high)", fontSize: 14, cursor: "pointer", padding: 0, marginLeft: 4 }}>×</button>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8,
+                background: "var(--accent-attach-bg)", border: "1px solid var(--accent-attach-border)",
+                borderRadius: 10, padding: "6px 12px", marginBottom: 6, fontSize: 12, color: "var(--accent-recommend)" }}>
+                📎 {attachedFile.name}
+                <button type="button" onClick={removeFile} style={{ background: "none", border: "none", color: "var(--risk-high)", fontSize: 14, cursor: "pointer", padding: 0, marginLeft: 4 }}>×</button>
+              </div>
+              <label style={{ display: "block", fontSize: 10, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                첨부 파일용 모델 (쿼터 0인 모델 오류 시 Flash Lite 등으로 지정)
+              </label>
+              <select
+                value={fileGeminiModel}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFileGeminiModel(v);
+                  try {
+                    localStorage.setItem(FILE_GEMINI_MODEL_KEY, v);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  maxWidth: 420,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid var(--surface-border-10)",
+                  background: "var(--surface-panel)",
+                  color: "var(--text-primary)",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {FILE_GEMINI_MODEL_OPTIONS.map((o) => (
+                  <option key={o.value || "auto"} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
           {!attachedFile && uploadNotice && (

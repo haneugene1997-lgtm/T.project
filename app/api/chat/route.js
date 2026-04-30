@@ -107,6 +107,7 @@ function normalizeGeminiModelId(raw) {
   if (m === "gemini-1.5-flash-latest") return "gemini-1.5-flash";
 
   const allow = new Set([
+    "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-latest",
     "gemini-2.5-flash-lite",
@@ -125,15 +126,61 @@ function normalizeGeminiModelId(raw) {
   return id;
 }
 
+/** 파일(바이너리) 분석 시 AI Studio에서 한도가 잡히는 모델을 먼저 시도 */
+const FILE_FIRST_MODELS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-latest",
+  "gemini-3-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-2.0-flash",
+];
+
+function uniqModels(ids) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of ids) {
+    const id = normalizeGeminiModelId(raw);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * @param {{ hasFile: boolean; envModel: string; clientModel?: string | null; envFileModel?: string | null }} o
+ */
+function buildCandidateModels(o) {
+  const { hasFile, envModel, clientModel, envFileModel } = o;
+  const client = clientModel ? normalizeGeminiModelId(clientModel) : "";
+  const filePref = envFileModel ? normalizeGeminiModelId(envFileModel) : "";
+
+  if (hasFile) {
+    return uniqModels([
+      client,
+      filePref,
+      ...FILE_FIRST_MODELS,
+      envModel,
+      "gemini-2.5-pro",
+    ]);
+  }
+
+  return uniqModels([client, envModel, ...FILE_FIRST_MODELS, "gemini-2.5-pro"]);
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { message, fileData, fileType, fileMimeType } = body;
+    const { message, fileData, fileType, fileMimeType, model: clientModelRaw } = body;
     const apiKey = process.env.GEMINI_API_KEY;
     /* 무료 등급에서 한도가 있는 모델이 프로젝트마다 다름 → 기본은 2.5 Flash 우선 */
     const envModel = normalizeGeminiModelId(
       process.env.GEMINI_MODEL || "gemini-2.5-flash"
     );
+    const envFileModel =
+      process.env.GEMINI_MODEL_FILES?.trim() || null;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -182,22 +229,19 @@ export async function POST(request) {
       },
     };
 
-    /* AI Studio 무료 등급에서 한도가 있는 모델이 2.5 Flash인 경우가 많아 먼저 시도 */
-    const candidateModels = [
-      ...new Set([
-        envModel,
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-latest",
-        "gemini-2.5-flash-lite",
-        "gemini-3-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-8b",
-        "gemini-2.0-flash",
-      ]),
-    ].filter(Boolean);
+    const hasFile = Boolean(fileData);
+    const candidateModels = buildCandidateModels({
+      hasFile,
+      envModel,
+      clientModel:
+        typeof clientModelRaw === "string" && clientModelRaw.trim()
+          ? clientModelRaw.trim()
+          : null,
+      envFileModel,
+    });
 
-    let response;
-    let responseJson;
+    let response = null;
+    let responseJson = null;
     for (const m of candidateModels) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
       response = await fetch(endpoint, {
@@ -205,27 +249,21 @@ export async function POST(request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload),
       });
-      responseJson = await response.json();
+      const bodyText = await response.text();
+      try {
+        responseJson = JSON.parse(bodyText);
+      } catch {
+        responseJson = {
+          error: { message: bodyText?.slice(0, 400) || `HTTP ${response.status}` },
+        };
+      }
       if (response.ok) break;
-      const errLower = String(responseJson?.error?.message || "").toLowerCase();
-      const isModelNotFound =
-        response.status === 404 ||
-        response.status === 400 ||
-        errLower.includes("not found") ||
-        errLower.includes("is not supported") ||
-        errLower.includes("unsupported") ||
-        errLower.includes("invalid model") ||
-        errLower.includes("unknown model");
-      if (isModelNotFound) continue;
-      const isQuota =
-        response.status === 429 ||
-        errLower.includes("resource_exhausted") ||
-        errLower.includes("quota");
-      if (isQuota) continue;
-      break;
+      /* 키 오류는 재시도해도 동일 */
+      if (response.status === 401 || response.status === 403) break;
+      /* 쿼터·404·400(미지원 MIME 등)은 다음 모델로 순차 시도 */
     }
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const providerErr =
         responseJson?.error?.message ||
         responseJson?.error ||
@@ -273,7 +311,7 @@ export async function POST(request) {
       lower.includes("insufficient") ||
       lower.includes("exceeded");
     const providerMessage = isBillingIssue
-      ? "Gemini 쿼터/한도 문제입니다. AI Studio 비율 제한에서 한도가 0인 모델은 호출할 수 없습니다. GEMINI_MODEL을 한도가 있는 모델(예: gemini-2.5-flash, gemini-2.5-flash-lite)로 두거나 결제를 활성화하세요."
+      ? "Gemini 쿼터/한도 문제입니다. AI Studio에서 한도가 0인 모델은 호출할 수 없습니다. 파일 분석 시 화면의「첨부 파일용 모델」에서 gemini-2.5-flash-lite 또는 gemini-2.5-flash를 고르거나, Vercel에 GEMINI_MODEL·GEMINI_MODEL_FILES(파일 전용)를 한도 있는 모델로 설정한 뒤 재배포하세요."
       : rawMessage;
 
     return NextResponse.json(
