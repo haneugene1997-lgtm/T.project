@@ -142,7 +142,6 @@ const FILE_GEMINI_MODEL_OPTIONS = [
   { value: "", label: "자동 (Flash Lite → Flash … 순차 시도)" },
   { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
   { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  { value: "gemini-2.5-flash-latest", label: "Gemini 2.5 Flash (latest)" },
   { value: "gemini-3-flash", label: "Gemini 3 Flash" },
   { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
   { value: "gemini-1.5-flash-8b", label: "Gemini 1.5 Flash-8B" },
@@ -280,7 +279,11 @@ export default function SKTLegalChat() {
   useEffect(() => {
     try {
       const v = localStorage.getItem(FILE_GEMINI_MODEL_KEY);
-      if (v != null) setFileGeminiModel(v);
+      if (v === "gemini-2.5-flash-latest") {
+        setFileGeminiModel("gemini-2.5-flash");
+      } else if (v != null) {
+        setFileGeminiModel(v);
+      }
     } catch {
       /* ignore */
     }

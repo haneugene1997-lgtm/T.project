@@ -103,13 +103,14 @@ function normalizeGeminiModelId(raw) {
   if (!id) return "gemini-2.5-flash";
   const m = id.toLowerCase();
 
+  /* latest alias는 v1beta에서 종종 미지원 → 안정 ID로 치환 */
+  if (m === "gemini-2.5-flash-latest") return "gemini-2.5-flash";
   /* 1.5-flash-latest 만 v1beta에서 자주 없음 → 무접미사 1.5-flash 로 */
   if (m === "gemini-1.5-flash-latest") return "gemini-1.5-flash";
 
   const allow = new Set([
     "gemini-2.5-pro",
     "gemini-2.5-flash",
-    "gemini-2.5-flash-latest",
     "gemini-2.5-flash-lite",
     "gemini-3-flash",
     "gemini-1.5-flash",
@@ -130,7 +131,6 @@ function normalizeGeminiModelId(raw) {
 const FILE_FIRST_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
-  "gemini-2.5-flash-latest",
 ];
 
 /* 무료 티어 소모 억제를 위한 입력/출력 예산 */
