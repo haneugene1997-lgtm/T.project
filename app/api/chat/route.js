@@ -131,10 +131,6 @@ const FILE_FIRST_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-flash-latest",
-  "gemini-3-flash",
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
-  "gemini-2.0-flash",
 ];
 
 /* 무료 티어 소모 억제를 위한 입력/출력 예산 */
@@ -174,12 +170,12 @@ function buildCandidateModels(o) {
       client,
       filePref,
       ...FILE_FIRST_MODELS,
+      /* 파일 분석은 quota=0 모델(예: pro/legacy) 제외하고 Flash 계열만 우선 */
       envModel,
-      "gemini-2.5-pro",
     ]);
   }
 
-  return uniqModels([client, envModel, ...FILE_FIRST_MODELS, "gemini-2.5-pro"]);
+  return uniqModels([client, envModel, ...FILE_FIRST_MODELS]);
 }
 
 export async function POST(request) {
