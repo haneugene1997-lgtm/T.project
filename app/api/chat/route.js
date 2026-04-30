@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -136,6 +137,9 @@ const FILE_FIRST_MODELS = [
 /* 무료 티어 소모 억제를 위한 입력/출력 예산 */
 const MAX_TEXT_FILE_CHARS = 12000;
 const MAX_INLINE_BASE64_CHARS = 1_800_000;
+const EXCEL_MAX_SHEETS = 5;
+const EXCEL_MAX_ROWS_PER_SHEET = 80;
+const EXCEL_MAX_COLS = 20;
 
 function squeezeTextForBudget(text) {
   const s = String(text || "");
@@ -143,6 +147,41 @@ function squeezeTextForBudget(text) {
   const head = s.slice(0, 8000);
   const tail = s.slice(-3500);
   return `${head}\n\n[...중략: 길이 절약을 위해 ${s.length - (head.length + tail.length)}자 생략...]\n\n${tail}`;
+}
+
+function isExcelMimeType(mime) {
+  const m = String(mime || "").toLowerCase();
+  return (
+    m.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") ||
+    m.includes("application/vnd.ms-excel") ||
+    m.includes("application/vnd.ms-excel.sheet.macroenabled.12")
+  );
+}
+
+function excelBase64ToText(base64Data) {
+  const buf = Buffer.from(String(base64Data || ""), "base64");
+  const wb = XLSX.read(buf, { type: "buffer" });
+  const sheets = wb.SheetNames.slice(0, EXCEL_MAX_SHEETS);
+
+  const blocks = sheets.map((name) => {
+    const ws = wb.Sheets[name];
+    const rows = XLSX.utils.sheet_to_json(ws, {
+      header: 1,
+      raw: false,
+      blankrows: false,
+      defval: "",
+    });
+    const trimmed = rows.slice(0, EXCEL_MAX_ROWS_PER_SHEET).map((r) =>
+      Array.isArray(r) ? r.slice(0, EXCEL_MAX_COLS) : [r]
+    );
+    const table = trimmed
+      .map((r) => r.map((c) => String(c).replace(/\s+/g, " ").trim()).join(" | "))
+      .filter(Boolean)
+      .join("\n");
+    return `## 시트: ${name}\n${table || "(내용 없음)"}`;
+  });
+
+  return squeezeTextForBudget(blocks.join("\n\n"));
 }
 
 function uniqModels(ids) {
@@ -215,10 +254,19 @@ export async function POST(request) {
           { status: 413 }
         );
       }
-      userParts = [
-        { inline_data: { mime_type: fileMimeType || "application/octet-stream", data: fileData } },
-        { text: message || "이 문서를 법무 컴플라이언스 관점에서 분석해주세요." },
-      ];
+      if (isExcelMimeType(fileMimeType)) {
+        const excelText = excelBase64ToText(fileData);
+        userParts = [
+          {
+            text: `${message ? message + "\n\n---\n\n" : ""}다음은 첨부된 엑셀 파일 내용을 텍스트로 변환한 것입니다. 법무 컴플라이언스 관점에서 분석해주세요:\n\n${excelText}`,
+          },
+        ];
+      } else {
+        userParts = [
+          { inline_data: { mime_type: fileMimeType || "application/octet-stream", data: fileData } },
+          { text: message || "이 문서를 법무 컴플라이언스 관점에서 분석해주세요." },
+        ];
+      }
     } else if (fileData) {
       const compactText = squeezeTextForBudget(fileData);
       userParts = [
